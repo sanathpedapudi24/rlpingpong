@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>From Rules to Equations: Teaching Pong to Think in Math</title>
+  <meta name="description"
+    content="A full pipeline that trains a neural network to play Pong, then uses symbolic regression to distill the entire model into a single mathematical formula.">
+  <meta property="og:title" content="From Rules to Equations: Teaching Pong to Think in Math">
+  <meta property="og:description"
+    content="I built a pipeline that trains a neural network to play Pong — then used symbolic regression to distill the entire model into one equation: sin(x5 + sin(x3 + x5×(-1.692))) + 0.976. Pure math, no neural network at inference.">
+  <meta property="og:type" content="article">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #111827;
+      --bg-card: #1a2035;
+      --bg-card-hover: #1f2847;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-glow: rgba(0, 224, 204, 0.15);
+      --text-primary: #f0f4ff;
+      --text-secondary: #8b95b0;
+      --text-muted: #5a6580;
+      --accent-teal: #00e0cc;
+      --accent-teal-dim: rgba(0, 224, 204, 0.15);
+      --accent-amber: #f5a623;
+      --accent-amber-dim: rgba(245, 166, 35, 0.12);
+      --accent-violet: #a78bfa;
+      --accent-rose: #fb7185;
+      --accent-blue: #60a5fa;
+      --gradient-hero: linear-gradient(135deg, #0a0e1a 0%, #111827 50%, #0f1729 100%);
+      --gradient-card: linear-gradient(145deg, rgba(26, 32, 53, 0.8), rgba(17, 24, 39, 0.6));
+      --font-body: 'DM Sans', system-ui, sans-serif;
+      --font-mono: 'Space Mono', 'Courier New', monospace;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+      --shadow-glow: 0 0 40px rgba(0, 224, 204, 0.08);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent-teal-dim);
+      border-radius: 3px;
+    }
+
+    /* --- NAVIGATION --- */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--accent-teal);
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+
+    .nav-links a:hover {
+      color: var(--accent-teal);
+    }
+
+    /* --- SECTIONS --- */
+    section {
+      padding: 6rem 1.5rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--accent-teal);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      line-height: 1.25;
+    }
+
+    .section-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 680px;
+      margin-bottom: 2.5rem;
+    }
+
+    /* --- HERO --- */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 80px;
+      position: relative;
+    }
+
+    #hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 50% 30%, rgba(0, 224, 204, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(245, 166, 35, 0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      border-radius: 50px;
+      background: var(--accent-teal-dim);
+      border: 1px solid rgba(0, 224, 204, 0.2);
+      font-size: 0.8rem;
+      color: var(--accent-teal);
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .hero-title {
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 1.2rem;
+      max-width: 800px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-flow-item {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .hero-flow-arrow {
+      color: var(--accent-teal);
+      font-size: 1rem;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 620px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-glow);
+      box-shadow: var(--shadow-glow);
+      background: #080c16;
+      margin: 0 auto;
+    }
+
+    #pongCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .formula-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.8rem 1rem;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+
+    .formula-overlay .val {
+      color: var(--accent-teal);
+    }
+
+    .formula-overlay .action-label {
+      color: var(--accent-amber);
+      font-weight: 700;
+    }
+
+    /* --- ANIMATE ON SCROLL --- */
+    .anim {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .anim.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* --- PIPELINE --- */
+    .pipeline-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .pipeline-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 150px;
+      position: relative;
+    }
+
+    .pipeline-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 0.6rem;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-card);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .pipeline-icon:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .pi-1 {
+      background: linear-gradient(135deg, #1e3a5f, #0f2345);
+      color: var(--accent-blue);
+    }
+
+    .pi-2 {
+      background: linear-gradient(135deg, #2d1f4e, #1a1040);
+      color: var(--accent-violet);
+    }
+
+    .pi-3 {
+      background: linear-gradient(135deg, #3b1f1f, #2a1010);
+      color: var(--accent-rose);
+    }
+
+    .pi-4 {
+      background: linear-gradient(135deg, #1f3b2d, #0f2a1a);
+      color: #34d399;
+    }
+
+    .pi-5 {
+      background: linear-gradient(135deg, #3b351f, #2a2010);
+      color: var(--accent-amber);
+    }
+
+    .pipeline-label {
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .pipeline-desc {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .pipeline-arrow {
+      display: flex;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      margin-top: 1.2rem;
+      padding: 0 0.2rem;
+    }
+
+    /* --- INSIGHT CARDS --- */
+    .cards-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .insight-card {
+      background: var(--gradient-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2rem 1.5rem;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .insight-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-4px);
+    }
+
+    .card-num {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-teal);
+      letter-spacing: 2px;
+      margin-bottom: 0.8rem;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+    }
+
+    .card-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .nn-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      margin: 1.2rem 0;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: var(--radius-sm);
+    }
+
+    .nn-layer {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .nn-node {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    .nn-layer.input .nn-node {
+      background: var(--accent-blue);
+      opacity: 0.8;
+    }
+
+    .nn-layer.output .nn-node {
+      background: var(--accent-amber);
+      opacity: 0.8;
+    }
+
+    .nn-connector {
+      width: 30px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .formula-display {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      padding: 1rem 1.2rem;
+      margin: 1rem 0;
+      background: rgba(0, 224, 204, 0.06);
+      border: 1px solid rgba(0, 224, 204, 0.15);
+      border-radius: var(--radius-sm);
+      color: var(--accent-teal);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* --- EQUATION DECODED --- */
+    .eq-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .eq-main {
+      font-family: var(--font-mono);
+      font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+      color: var(--accent-teal);
+      text-align: center;
+      padding: 1.5rem 0;
+      letter-spacing: 0.5px;
+      line-height: 2;
+    }
+
+    .eq-var {
+      position: relative;
+      cursor: help;
+      border-bottom: 1px dashed var(--accent-amber);
+      padding-bottom: 2px;
+    }
+
+    .var-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+    }
+
+    .var-table th {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .var-table td {
+      padding: 0.7rem 1rem;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .var-table td:first-child {
+      font-family: var(--font-mono);
+      color: var(--accent-teal);
+      font-weight: 700;
+    }
+
+    /* --- SLIDERS --- */
+    .slider-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .slider-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .slider-label span:first-child {
+      font-family: var(--font-mono);
+      color: var(--accent-teal);
+    }
+
+    .slider-label span:last-child {
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 224, 204, 0.3);
+    }
+
+    .slider-output {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      padding: 1.2rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: var(--radius-sm);
+    }
+
+    .output-block {
+      text-align: center;
+    }
+
+    .output-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.3rem;
+    }
+
+    .output-value {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .output-value.teal {
+      color: var(--accent-teal);
+    }
+
+    .output-value.amber {
+      color: var(--accent-amber);
+    }
+
+    /* --- METRICS --- */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .metric-card {
+      background: var(--gradient-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+
+    .metric-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.4rem;
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .compression-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2rem;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .bar-label {
+      font-size: 0.8rem;
+      width: 120px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 1.5s ease;
+    }
+
+    .bar-fill.nn {
+      background: linear-gradient(90deg, var(--accent-rose), var(--accent-violet));
+    }
+
+    .bar-fill.sym {
+      background: linear-gradient(90deg, var(--accent-teal), #34d399);
+    }
+
+    /* --- TECH STACK --- */
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-bottom: 2rem;
+    }
+
+    .pill {
+      padding: 0.5rem 1.2rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      transition: all 0.3s;
+    }
+
+    .pill:hover {
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.8rem;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: none;
+      font-family: var(--font-body);
+    }
+
+    .btn-primary {
+      background: var(--accent-teal);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 30px rgba(0, 224, 204, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .copy-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--accent-teal);
+      color: var(--bg-primary);
+      padding: 0.7rem 1.5rem;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      z-index: 200;
+      transition: transform 0.4s ease;
+      pointer-events: none;
+    }
+
+    .copy-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* --- FOOTER --- */
+    footer {
+      text-align: center;
+      padding: 4rem 1.5rem;
+      border-top: 1px solid var(--border-subtle);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    footer h2 {
+      font-size: 1.6rem;
+      margin-bottom: 0.6rem;
+    }
+
+    footer p {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    /* --- RESPONSIVE --- */
+    @media(max-width: 768px) {
+      section {
+        padding: 4rem 1rem;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .pipeline-arrow {
+        display: none;
+      }
+
+      .pipeline-container {
+        gap: 1.5rem;
+      }
+
+      .hero-flow {
+        gap: 0.3rem;
+      }
+
+      .eq-container {
+        padding: 1.5rem;
+      }
+
+      .slider-panel {
+        padding: 1.2rem;
+      }
+    }
+
+    @media(max-width: 480px) {
+      .hero-flow-item {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.5rem;
+      }
+
+      .cards-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* --- PRINT --- */
+    @media print {
+
+      nav,
+      .canvas-wrapper,
+      .slider-panel,
+      .copy-toast,
+      .btn-group {
+        display: none !important;
+      }
+
+      body {
+        background: #fff;
+        color: #000;
+      }
+
+      .section-label {
+        color: #0a7;
+      }
+
+      .metric-value {
+        -webkit-text-fill-color: #000;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">RL PING PONG</div>
+    <div class="nav-links">
+      <a href="#hero">Home</a><a href="#pipeline">Pipeline</a><a href="#insight">Why SR?</a>
+      <a href="#equation">Equation</a><a href="#performance">Results</a><a href="#stack">Stack</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-badge"><span class="dot"></span> Live Simulation — Powered by Pure Math</div>
+    <h1 class="hero-title">From Rules to Equations: Teaching Pong to Think in Math</h1>
+    <p class="hero-subtitle">A rule-based AI generates data → a neural network learns to play → symbolic regression
+      distills it all into <em>one formula</em>. No neural network at inference.</p>
+    <div class="hero-flow">
+      <span class="hero-flow-item">Rule-Based AI</span><span class="hero-flow-arrow">→</span>
+      <span class="hero-flow-item">500K Data Pairs</span><span class="hero-flow-arrow">→</span>
+      <span class="hero-flow-item">Neural Network</span><span class="hero-flow-arrow">→</span>
+      <span class="hero-flow-item">PySR</span><span class="hero-flow-arrow">→</span>
+      <span class="hero-flow-item" style="border-color:rgba(0,224,204,0.3);color:var(--accent-teal)">sin(x₅ + sin(x₃ +
+        x₅·c)) + b</span>
+    </div>
+    <div class="canvas-wrapper">
+      <canvas id="pongCanvas" width="600" height="350"></canvas>
+      <div class="formula-overlay">
+        <span>f(x) = <span class="val" id="overlayVal">0.000</span></span>
+        <span>Action: <span class="action-label" id="overlayAction">STAY</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section id="pipeline">
+    <span class="section-label anim">02 — Pipeline</span>
+    <h2 class="section-title anim">The Full Training Pipeline</h2>
+    <p class="section-subtitle anim">Five stages take us from a game engine to a single equation that plays Pong
+      autonomously.</p>
+    <div class="pipeline-container anim">
+      <div class="pipeline-node">
+        <div class="pipeline-icon pi-1">🎮</div>
+        <div class="pipeline-label">Rule-Based AI</div>
+        <div class="pipeline-desc">Pygame engine + hand-coded agent generates gameplay</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-icon pi-2">📊</div>
+        <div class="pipeline-label">Data: 500K Pairs</div>
+        <div class="pipeline-desc">8-dim state vectors + action labels collected at 60fps</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-icon pi-3">🧠</div>
+        <div class="pipeline-label">Neural Network</div>
+        <div class="pipeline-desc">PyTorch MLP (128→64→3) trained to 93%+ accuracy</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-icon pi-4">🔬</div>
+        <div class="pipeline-label">PySR</div>
+        <div class="pipeline-desc">Symbolic regression searches for a governing equation</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-icon pi-5">✨</div>
+        <div class="pipeline-label">Closed-Form</div>
+        <div class="pipeline-desc">One equation replaces the entire neural network</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSIGHT -->
+  <section id="insight">
+    <span class="section-label anim">03 — Core Insight</span>
+    <h2 class="section-title anim">Why Symbolic Regression?</h2>
+    <p class="section-subtitle anim">Neural networks solve problems — but can we understand <em>how</em>?</p>
+    <div class="cards-row">
+      <div class="insight-card anim">
+        <div class="card-num">01</div>
+        <div class="card-title">The Black Box Problem</div>
+        <div class="card-text">Neural networks achieve superhuman performance — but their decisions are trapped in
+          millions of opaque parameters. What did it actually learn?</div>
+        <div class="nn-diagram">
+          <div class="nn-layer input">
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+          </div>
+          <div class="nn-connector"></div>
+          <div class="nn-layer">
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+          </div>
+          <div class="nn-connector"></div>
+          <div class="nn-layer">
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+          </div>
+          <div class="nn-connector"></div>
+          <div class="nn-layer output">
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+            <div class="nn-node"></div>
+          </div>
+        </div>
+      </div>
+      <div class="insight-card anim">
+        <div class="card-num">02</div>
+        <div class="card-title">The Distillation Idea</div>
+        <div class="card-text">Use the neural network as a <em>teacher</em>. Generate predictions across thousands of
+          states, then let symbolic regression discover the formula that replicates its decisions — a mathematical
+          compression of learned behavior.</div>
+      </div>
+      <div class="insight-card anim">
+        <div class="card-num">03</div>
+        <div class="card-title">The Payoff</div>
+        <div class="card-text">The result is interpretable, lightning-fast (no matrix math at inference), and provably
+          compact. The entire policy collapses to:</div>
+        <div class="formula-display">sin(x₅ + sin(x₃ + x₅ × (−1.692))) + 0.976</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EQUATION -->
+  <section id="equation">
+    <span class="section-label anim">04 — The Equation</span>
+    <h2 class="section-title anim">Decoded: What the Formula Means</h2>
+    <div class="eq-container anim">
+      <div class="eq-main">
+        sin(<span class="eq-var" title="Player paddle Y (normalized)">x₅</span> + sin(<span class="eq-var"
+          title="Ball Y (normalized)">x₃</span> + <span class="eq-var" title="Player paddle Y (normalized)">x₅</span> ×
+        (−1.6924238))) + 0.97586584
+      </div>
+      <table class="var-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Meaning</th>
+            <th>In Code</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>x₃</td>
+            <td>Ball velocity Y (normalized)</td>
+            <td>state_norm[3]</td>
+          </tr>
+          <tr>
+            <td>x₅</td>
+            <td>Player paddle velocity Y (normalized)</td>
+            <td>state_norm[5]</td>
+          </tr>
+          <tr>
+            <td>−1.692</td>
+            <td>Learned coefficient — scales paddle position</td>
+            <td>constant</td>
+          </tr>
+          <tr>
+            <td>+0.976</td>
+            <td>Bias — offsets decision boundary</td>
+            <td>constant</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="slider-panel anim" aria-label="Interactive formula explorer">
+      <h3 style="font-size:1rem;margin-bottom:1.2rem;">Interactive Explorer</h3>
+      <div class="slider-group">
+        <div class="slider-label"><span>x₃ (ball_vy norm)</span><span id="x3Display">0.00</span></div>
+        <input type="range" id="x3Slider" min="-2" max="2" step="0.01" value="0" aria-label="x3 ball velocity Y">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>x₅ (paddle_vy norm)</span><span id="x5Display">0.00</span></div>
+        <input type="range" id="x5Slider" min="-2" max="2" step="0.01" value="0" aria-label="x5 paddle velocity Y">
+      </div>
+      <div class="slider-output">
+        <div class="output-block">
+          <div class="output-label">Formula Output</div>
+          <div class="output-value teal" id="formulaResult">0.976</div>
+        </div>
+        <div class="output-block">
+          <div class="output-label">Mapped Action</div>
+          <div class="output-value amber" id="actionResult">STAY</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section id="performance">
+    <span class="section-label anim">05 — Results</span>
+    <h2 class="section-title anim">Performance at a Glance</h2>
+    <div class="metrics-row">
+      <div class="metric-card anim">
+        <div class="metric-value">93%+</div>
+        <div class="metric-label">Neural Network Validation Accuracy</div>
+      </div>
+      <div class="metric-card anim">
+        <div class="metric-value">5+ min</div>
+        <div class="metric-label">Autonomous Gameplay Duration</div>
+      </div>
+      <div class="metric-card anim">
+        <div class="metric-value">2 / 8</div>
+        <div class="metric-label">Features Used by Formula</div>
+      </div>
+    </div>
+    <div class="compression-bar anim">
+      <h3 style="font-size:0.95rem;margin-bottom:1.2rem;">Model Compression</h3>
+      <div class="bar-row">
+        <div class="bar-label">Neural Net</div>
+        <div class="bar-track">
+          <div class="bar-fill nn" id="barNN" style="width:0%"></div>
+        </div>
+        <span
+          style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted);width:90px;text-align:right">~10K
+          params</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Symbolic</div>
+        <div class="bar-track">
+          <div class="bar-fill sym" id="barSym" style="width:0%"></div>
+        </div>
+        <span
+          style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted);width:90px;text-align:right">4
+          terms</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section id="stack">
+    <span class="section-label anim">06 — Tech Stack</span>
+    <h2 class="section-title anim">Built With</h2>
+    <div class="pills anim">
+      <span class="pill">Python</span><span class="pill">PyTorch</span><span class="pill">PySR</span>
+      <span class="pill">Pygame</span><span class="pill">NumPy</span><span class="pill">SymPy</span>
+      <span class="pill">Symbolic Regression</span>
+    </div>
+    <div class="btn-group anim">
+      <a href="https://github.com/sanathpedapudi24" target="_blank" rel="noopener" class="btn btn-primary"
+        aria-label="View source on GitHub">⬡ View on GitHub</a>
+      <button class="btn btn-outline" id="copyBtn" aria-label="Copy LinkedIn post to clipboard">📋 Copy LinkedIn
+        Post</button>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <h2 class="anim">Let's Connect</h2>
+    <p class="anim">If you found this interesting, I'd love to hear from you.</p>
+    <a href="https://www.linkedin.com/in/sanath24/" target="_blank" rel="noopener" class="btn btn-primary anim"
+      aria-label="Connect on LinkedIn">Connect on LinkedIn →</a>
+  </footer>
+
+  <div class="copy-toast" id="copyToast">✓ Copied to clipboard!</div>
+
+  <script>
+    /* ===== INTERSECTION OBSERVER ===== */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.anim').forEach(el => observer.observe(el));
+
+    /* ===== COMPRESSION BAR ANIMATION ===== */
+    const barObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          document.getElementById('barNN').style.width = '100%';
+          document.getElementById('barSym').style.width = '3%';
+          barObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    barObs.observe(document.querySelector('.compression-bar'));
+
+    /* ===== SYMBOLIC FORMULA ===== */
+    function symbolicFormula(x3, x5) {
+      return Math.sin(x5 + Math.sin(x3 + x5 * (-1.6924238))) + 0.97586584;
+    }
+    function valToAction(val) {
+      const rounded = Math.round(Math.min(2, Math.max(0, val)));
+      return ['UP', 'STAY', 'DOWN'][rounded];
+    }
+
+    /* ===== SLIDERS ===== */
+    const x3Slider = document.getElementById('x3Slider');
+    const x5Slider = document.getElementById('x5Slider');
+    function updateSliders() {
+      const x3 = parseFloat(x3Slider.value), x5 = parseFloat(x5Slider.value);
+      document.getElementById('x3Display').textContent = x3.toFixed(2);
+      document.getElementById('x5Display').textContent = x5.toFixed(2);
+      const val = symbolicFormula(x3, x5);
+      document.getElementById('formulaResult').textContent = val.toFixed(4);
+      document.getElementById('actionResult').textContent = valToAction(val);
+    }
+    x3Slider.addEventListener('input', updateSliders);
+    x5Slider.addEventListener('input', updateSliders);
+    updateSliders();
+
+    /* ===== COPY LINKEDIN POST ===== */
+    document.getElementById('copyBtn').addEventListener('click', () => {
+      const text = `I built a pipeline that trains a neural network to play Pong — then used symbolic regression to distill the entire model into a single equation: sin(x5 + sin(x3 + x5×(-1.692))) + 0.976. The paddle now plays autonomously using pure math. Full writeup: https://github.com/sanathpedapudi24/rlpingpong #MachineLearning #SymbolicAI #DeepLearning #Python`;
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('copyToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2200);
+      });
+    });
+
+    /* ===== PONG GAME ===== */
+    (function () {
+      const canvas = document.getElementById('pongCanvas');
+      const ctx = canvas.getContext('2d');
+      const W = 600, H = 350;
+      const paddleW = 10, paddleH = 70, ballR = 6, paddleSpeed = 3;
+      let ball = { x: W / 2, y: H / 2, vx: 3, vy: 1.5 };
+      let p1 = { y: H / 2 - paddleH / 2 }; // left — simple AI
+      let p2 = { y: H / 2 - paddleH / 2 }; // right — symbolic formula
+      let score = { p1: 0, p2: 0 };
+
+      function resetBall() {
+        ball.x = W / 2; ball.y = H / 2;
+        ball.vx = (Math.random() > 0.5 ? 1 : -1) * 3;
+        ball.vy = (Math.random() - 0.5) * 3;
+      }
+
+      function tick() {
+        // --- Opponent AI (left paddle) ---
+        const p1Center = p1.y + paddleH / 2;
+        if (ball.y < p1Center - 8) p1.y -= paddleSpeed;
+        else if (ball.y > p1Center + 8) p1.y += paddleSpeed;
+        p1.y = Math.max(0, Math.min(H - paddleH, p1.y));
+
+        // --- Symbolic AI (right paddle) ---
+        const x3 = (ball.vy) / 5; // normalize ball vy roughly
+        const x5 = (p2.y + paddleH / 2 - H / 2) / (H / 2); // normalize paddle y
+        const val = symbolicFormula(x3, x5);
+        const action = Math.round(Math.min(2, Math.max(0, val))); // 0=up,1=stay,2=down
+        if (action === 0) p2.y -= paddleSpeed;
+        else if (action === 2) p2.y += paddleSpeed;
+        p2.y = Math.max(0, Math.min(H - paddleH, p2.y));
+
+        // --- Ball ---
+        ball.x += ball.vx; ball.y += ball.vy;
+        if (ball.y - ballR <= 0 || ball.y + ballR >= H) ball.vy *= -1;
+
+        // Left paddle collision
+        if (ball.x - ballR <= paddleW && ball.y >= p1.y && ball.y <= p1.y + paddleH) {
+          ball.vx = Math.abs(ball.vx);
+          ball.vy += ((ball.y - (p1.y + paddleH / 2)) / (paddleH / 2)) * 1.5;
+        }
+        // Right paddle collision
+        if (ball.x + ballR >= W - paddleW && ball.y >= p2.y && ball.y <= p2.y + paddleH) {
+          ball.vx = -Math.abs(ball.vx);
+          ball.vy += ((ball.y - (p2.y + paddleH / 2)) / (paddleH / 2)) * 1.5;
+        }
+        // Scoring
+        if (ball.x < 0) { score.p2++; resetBall(); }
+        if (ball.x > W) { score.p1++; resetBall(); }
+
+        // Clamp ball vy
+        ball.vy = Math.max(-5, Math.min(5, ball.vy));
+
+        // --- Overlay ---
+        document.getElementById('overlayVal').textContent = val.toFixed(3);
+        document.getElementById('overlayAction').textContent = ['UP', 'STAY', 'DOWN'][action];
+      }
+
+      function draw() {
+        ctx.fillStyle = '#080c16'; ctx.fillRect(0, 0, W, H);
+        // Center line
+        ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+        // Paddles
+        ctx.fillStyle = '#3a4a6b'; ctx.fillRect(0, p1.y, paddleW, paddleH);
+        ctx.fillStyle = '#00e0cc'; ctx.fillRect(W - paddleW, p2.y, paddleW, paddleH);
+        // Ball
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ball.x, ball.y, ballR, 0, Math.PI * 2); ctx.fill();
+        // Score
+        ctx.font = '700 14px "Space Mono", monospace'; ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.textAlign = 'center';
+        ctx.fillText(score.p1, W / 2 - 40, 28);
+        ctx.fillText(score.p2, W / 2 + 40, 28);
+        // Label
+        ctx.font = '10px "DM Sans", sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.textAlign = 'left'; ctx.fillText('RULE AI', 8, H - 10);
+        ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(0,224,204,0.3)'; ctx.fillText('SYMBOLIC AI', W - 8, H - 10);
+      }
+
+      function loop() { tick(); draw(); requestAnimationFrame(loop); }
+      resetBall(); loop();
+    })();
+  </script>
+</body>
+
+</html>
